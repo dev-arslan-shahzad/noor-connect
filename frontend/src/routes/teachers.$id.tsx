@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Calendar, Globe2, GraduationCap, MapPin, Monitor, Share2, Users } from "lucide-react";
-import api from "@/lib/api";
+import api, { normalizeTeacher, unwrap, unwrapList } from "@/lib/api";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { StarRating } from "@/components/StarRating";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
@@ -73,11 +73,22 @@ function TeacherProfilePage() {
   useEffect(() => {
     setLoading(true);
     Promise.allSettled([
-      api.get(`teachers/${id}/`).then((r) => r.data?.data ?? r.data),
-      api.get(`reviews/?teacher=${id}`).then((r) => r.data?.data ?? r.data?.results ?? r.data),
+      api.get(`teachers/${id}/`).then((r) => normalizeTeacher(unwrap(r))),
+      api.get(`reviews/`, { params: { teacher: id } }).then((r) => unwrapList<Review>(r)),
     ]).then(([t, r]) => {
-      setTeacher(t.status === "fulfilled" && t.value ? t.value : FALLBACK);
-      setReviews(r.status === "fulfilled" && Array.isArray(r.value) && r.value.length ? r.value : FALLBACK_REVIEWS);
+      const teacherData = t.status === "fulfilled" && t.value ? (t.value as any) : FALLBACK;
+      const teacherWithReviews =
+        teacherData && t.status === "fulfilled" && (t.value as any)?.reviews?.length
+          ? { ...teacherData, reviews: undefined }
+          : teacherData;
+      setTeacher(teacherWithReviews);
+      const fetchedReviews =
+        t.status === "fulfilled" && (t.value as any)?.reviews?.length
+          ? ((t.value as any).reviews as Review[])
+          : r.status === "fulfilled" && r.value.length
+            ? r.value
+            : FALLBACK_REVIEWS;
+      setReviews(fetchedReviews);
       setLoading(false);
     });
   }, [id]);

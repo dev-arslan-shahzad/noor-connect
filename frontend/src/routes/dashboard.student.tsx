@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Calendar, GraduationCap, History, Search, User, LogOut, Video, Star } from "lucide-react";
-import api from "@/lib/api";
+import api, { unwrapList } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { BookingStatusBadge } from "@/components/BookingStatusBadge";
@@ -13,9 +13,12 @@ export const Route = createFileRoute("/dashboard/student")({
 
 interface Booking {
   id: string | number;
+  session_id?: number | null;
   teacher_name?: string;
   subject?: string;
   date?: string;
+  start_time?: string;
+  end_time?: string;
   time?: string;
   status?: string;
   reviewed?: boolean;
@@ -23,10 +26,19 @@ interface Booking {
 }
 
 const SAMPLE_BOOKINGS: Booking[] = [
-  { id: 1, teacher_name: "Ustadh Ahmed Khan", subject: "Tajweed", date: "2026-05-14", time: "5:00 PM", status: "upcoming", meet_link: "https://meet.google.com/abc-defg-hij" },
-  { id: 2, teacher_name: "Ustadha Aisha Siddiqui", subject: "Nazra", date: "2026-05-10", time: "4:00 PM", status: "completed", reviewed: false },
-  { id: 3, teacher_name: "Sheikh Bilal Hassan", subject: "Tajweed", date: "2026-05-02", time: "6:00 PM", status: "completed", reviewed: true },
+  { id: 1, teacher_name: "Ustadh Ahmed Khan", subject: "Tajweed", date: "2026-05-14", start_time: "17:00:00", end_time: "18:00:00", status: "upcoming", meet_link: "https://meet.google.com/abc-defg-hij" },
+  { id: 2, teacher_name: "Ustadha Aisha Siddiqui", subject: "Nazra", date: "2026-05-10", start_time: "16:00:00", end_time: "17:00:00", status: "completed", reviewed: false },
+  { id: 3, teacher_name: "Sheikh Bilal Hassan", subject: "Tajweed", date: "2026-05-02", start_time: "18:00:00", end_time: "19:00:00", status: "completed", reviewed: true },
 ];
+
+function fmtTime(t?: string) {
+  if (!t) return "";
+  const [h, m] = t.split(":");
+  const hh = Number(h);
+  const ampm = hh >= 12 ? "PM" : "AM";
+  const display = ((hh + 11) % 12) + 1;
+  return `${display}:${m} ${ampm}`;
+}
 
 function StudentDashboard() {
   const { user, logout } = useAuth();
@@ -35,8 +47,16 @@ function StudentDashboard() {
 
   useEffect(() => {
     api.get("bookings/").then((r) => {
-      const list = r.data?.data ?? r.data?.results ?? r.data;
-      if (Array.isArray(list) && list.length) setBookings(list);
+      const list = unwrapList<Booking>(r);
+      if (list.length) setBookings(list);
+    }).catch(() => {});
+    // Mark "reviewed" status by fetching the student's reviews
+    api.get("reviews/").then((r) => {
+      const reviews = unwrapList<{ booking: number }>(r);
+      const reviewedBookings = new Set(reviews.map((rv) => rv.booking));
+      setBookings((prev) =>
+        prev.map((b) => (reviewedBookings.has(Number(b.id)) ? { ...b, reviewed: true } : b)),
+      );
     }).catch(() => {});
   }, []);
 
@@ -89,9 +109,9 @@ function StudentDashboard() {
                   </div>
                   <div className="flex-1">
                     <p className="font-semibold">{upcoming[0].teacher_name}</p>
-                    <p className="text-sm text-muted-foreground">{upcoming[0].subject} · {upcoming[0].date} · {upcoming[0].time}</p>
+                    <p className="text-sm text-muted-foreground">{upcoming[0].subject} · {upcoming[0].date} · {fmtTime(upcoming[0].start_time ?? upcoming[0].time)}</p>
                   </div>
-                  <Link to="/classroom/$sessionId" params={{ sessionId: String(upcoming[0].id) }}
+                  <Link to="/classroom/$sessionId" params={{ sessionId: String(upcoming[0].session_id ?? upcoming[0].id) }}
                     className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
                     <Video className="h-4 w-4" /> Join Session
                   </Link>
@@ -119,11 +139,11 @@ function StudentDashboard() {
                   <tr key={b.id}>
                     <td className="px-6 py-3 font-medium">{b.teacher_name}</td>
                     <td className="px-6 py-3 text-muted-foreground">{b.subject}</td>
-                    <td className="px-6 py-3 text-muted-foreground">{b.date} · {b.time}</td>
+                    <td className="px-6 py-3 text-muted-foreground">{b.date} · {fmtTime(b.start_time ?? b.time)}</td>
                     <td className="px-6 py-3"><BookingStatusBadge status={b.status ?? "pending"} /></td>
                     <td className="px-6 py-3 text-right">
                       {b.status === "upcoming" && (
-                        <Link to="/classroom/$sessionId" params={{ sessionId: String(b.id) }} className="text-primary text-sm font-semibold">Join</Link>
+                        <Link to="/classroom/$sessionId" params={{ sessionId: String(b.session_id ?? b.id) }} className="text-primary text-sm font-semibold">Join</Link>
                       )}
                       {b.status === "completed" && !b.reviewed && (
                         <Link to="/review/$bookingId" params={{ bookingId: String(b.id) }} className="text-primary text-sm font-semibold">Review</Link>
@@ -143,7 +163,7 @@ function StudentDashboard() {
               <div key={b.id} className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
                 <div>
                   <p className="font-semibold">{b.teacher_name} · <span className="text-muted-foreground font-normal">{b.subject}</span></p>
-                  <p className="text-xs text-muted-foreground">{b.date} · {b.time}</p>
+                  <p className="text-xs text-muted-foreground">{b.date} · {fmtTime(b.start_time ?? b.time)}</p>
                 </div>
                 {!b.reviewed && (
                   <Link to="/review/$bookingId" params={{ bookingId: String(b.id) }}

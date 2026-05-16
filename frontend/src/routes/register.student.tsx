@@ -44,9 +44,9 @@ function RegisterStudent() {
         password: v.password,
         phone: v.phone,
         city: v.city,
-        learner_type: v.for_self,
-        child_name: v.child_name,
-        child_age: v.child_age,
+        is_learning_for_child: v.for_self === "child",
+        child_name: v.for_self === "child" ? v.child_name : "",
+        child_age: v.for_self === "child" ? v.child_age : null,
       });
       const data = res.data?.data ?? res.data;
       if (data?.access) localStorage.setItem("access_token", data.access);

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Search, SlidersHorizontal, X } from "lucide-react";
-import api from "@/lib/api";
+import api, { normalizeTeachers, unwrapList } from "@/lib/api";
 import { TeacherCard, type Teacher } from "@/components/TeacherCard";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ErrorMessage } from "@/components/ErrorMessage";
@@ -10,7 +10,11 @@ export const Route = createFileRoute("/teachers")({
   head: () => ({
     meta: [
       { title: "Find a Quran Teacher — NoorConnect" },
-      { name: "description", content: "Search verified Quran teachers by subject, gender, city, price, and rating. Online & in-person." },
+      {
+        name: "description",
+        content:
+          "Search verified Quran teachers by subject, gender, city, price, and rating. Online & in-person.",
+      },
     ],
   }),
   component: TeacherSearchPage,
@@ -28,6 +32,12 @@ const SAMPLE: Teacher[] = [
   { id: 6, full_name: "Ustadha Khadija Rehman", subjects: ["Nazra", "Islamic Studies"], city: "Karachi", mode: "online", hourly_rate: 1000, rating: 4.9, reviews_count: 71, verified: true },
 ];
 
+const MODE_TO_BACKEND: Record<string, string> = {
+  online: "online",
+  "in-person": "inperson",
+  both: "both",
+};
+
 function TeacherSearchPage() {
   const [teachers, setTeachers] = useState<Teacher[]>(SAMPLE);
   const [loading, setLoading] = useState(false);
@@ -41,15 +51,16 @@ function TeacherSearchPage() {
   const [city, setCity] = useState("All");
   const [maxPrice, setMaxPrice] = useState(15000);
   const [minRating, setMinRating] = useState(0);
-  const [ordering, setOrdering] = useState("-rating");
+  const [ordering, setOrdering] = useState("highest_rated");
   const [showFilters, setShowFilters] = useState(false);
 
   const params = useMemo(() => {
     const p: Record<string, string> = {};
     if (search) p.search = search;
-    if (subjects.length) p.subject = subjects.join(",");
+    // Backend filters one subject at a time — send the first selected.
+    if (subjects.length) p.subject = subjects[0];
     if (gender !== "any") p.gender = gender;
-    if (mode !== "any") p.mode = mode;
+    if (mode !== "any") p.mode = MODE_TO_BACKEND[mode] ?? mode;
     if (city !== "All") p.city = city;
     p.max_price = String(maxPrice);
     if (minRating) p.rating = String(minRating);
@@ -63,8 +74,8 @@ function TeacherSearchPage() {
     api
       .get("teachers/", { params })
       .then((res) => {
-        const list = res.data?.data ?? res.data?.results ?? res.data;
-        setTeachers(Array.isArray(list) && list.length ? list : SAMPLE);
+        const list = normalizeTeachers(unwrapList(res));
+        setTeachers(list.length ? list : SAMPLE);
       })
       .catch(() => {
         setTeachers(SAMPLE);
@@ -164,9 +175,10 @@ function TeacherSearchPage() {
               />
             </div>
             <select value={ordering} onChange={(e) => setOrdering(e.target.value)} className="rounded-md border border-input bg-background px-3 py-2 text-sm">
-              <option value="-rating">Highest rated</option>
-              <option value="hourly_rate">Lowest price</option>
-              <option value="-reviews_count">Most reviews</option>
+              <option value="highest_rated">Highest rated</option>
+              <option value="lowest_price">Lowest price</option>
+              <option value="most_reviews">Most reviews</option>
+              <option value="newest">Newest</option>
             </select>
             <button onClick={() => setShowFilters(true)} className="lg:hidden inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm">
               <SlidersHorizontal className="h-4 w-4" /> Filters
@@ -186,7 +198,6 @@ function TeacherSearchPage() {
         </div>
       </div>
 
-      {/* Mobile filter drawer */}
       {showFilters && (
         <div className="fixed inset-0 z-50 bg-background/90 backdrop-blur p-6 overflow-y-auto lg:hidden">
           <div className="flex justify-between items-center mb-6">

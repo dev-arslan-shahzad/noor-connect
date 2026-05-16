@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useState } from "react";
-import api from "@/lib/api";
+import api, { normalizeTeachers, unwrapList } from "@/lib/api";
 import { TeacherCard, type Teacher } from "@/components/TeacherCard";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 
@@ -40,10 +40,10 @@ function NearbyPage() {
   }, []);
 
   useEffect(() => {
-    api.get("teachers/nearby/", { params: { lat: center[0], lng: center[1] } })
+    api.get("teachers/nearby/", { params: { lat: center[0], lng: center[1], radius: 25 } })
       .then((res) => {
-        const list = res.data?.data ?? res.data?.results ?? res.data;
-        if (Array.isArray(list) && list.length) setTutors(list);
+        const list = normalizeTeachers(unwrapList(res)) as NearbyTeacher[];
+        if (list.length) setTutors(list);
       })
       .catch(() => {});
   }, [center]);

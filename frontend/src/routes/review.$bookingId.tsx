@@ -21,7 +21,7 @@ function ReviewPage() {
   const submit = async () => {
     setSubmitting(true); setError(null);
     try {
-      await api.post("reviews/", { booking: bookingId, rating, comment });
+      await api.post("reviews/", { booking_id: Number(bookingId), rating, comment });
       navigate({ to: "/dashboard/student" });
     } catch (e: any) {
       setError(e.response?.data?.detail ?? "Failed to submit review.");

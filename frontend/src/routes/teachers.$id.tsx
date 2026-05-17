@@ -23,7 +23,6 @@ interface Teacher {
   avatar?: string;
   cover?: string;
   subjects?: string[];
-  levels?: string[];
   languages?: string[];
   mode?: string;
   experience?: number;
@@ -47,7 +46,6 @@ const FALLBACK: Teacher = {
   full_name: "Ustadh Ahmed Khan",
   bio: "Hafiz-ul-Quran with 12 years of teaching experience. Specializes in Tajweed and Hifz for children and adults. Patient, structured, and warm.",
   subjects: ["Tajweed", "Hifz", "Nazra"],
-  levels: ["Noorani Qaida", "Nazra", "Tajweed", "Hifz"],
   languages: ["Urdu", "English", "Arabic"],
   mode: "both",
   experience: 12,
@@ -135,10 +133,9 @@ function TeacherProfilePage() {
             <p className="text-foreground/80">{teacher.bio}</p>
           </section>
 
-          {/* Subjects/levels/languages */}
-          <section className="mt-6 grid sm:grid-cols-3 gap-4">
+          {/* Subjects / Languages */}
+          <section className="mt-6 grid sm:grid-cols-2 gap-4">
             <Block title="Subjects" items={teacher.subjects ?? []} />
-            <Block title="Levels" items={teacher.levels ?? []} />
             <Block title="Languages" items={teacher.languages ?? []} icon={<Globe2 className="h-4 w-4" />} />
           </section>
 

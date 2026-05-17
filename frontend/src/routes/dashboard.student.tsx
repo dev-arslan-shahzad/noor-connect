@@ -111,10 +111,17 @@ function StudentDashboard() {
                     <p className="font-semibold">{upcoming[0].teacher_name}</p>
                     <p className="text-sm text-muted-foreground">{upcoming[0].subject} · {upcoming[0].date} · {fmtTime(upcoming[0].start_time ?? upcoming[0].time)}</p>
                   </div>
-                  <Link to="/classroom/$sessionId" params={{ sessionId: String(upcoming[0].session_id ?? upcoming[0].id) }}
-                    className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
-                    <Video className="h-4 w-4" /> Join Session
-                  </Link>
+                  {upcoming[0].session_id ? (
+                    <Link to="/classroom/$sessionId" params={{ sessionId: String(upcoming[0].session_id) }}
+                      className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
+                      <Video className="h-4 w-4" /> Join Session
+                    </Link>
+                  ) : (
+                    <span className="inline-flex items-center gap-2 rounded-md bg-muted px-4 py-2 text-sm font-medium text-muted-foreground"
+                      title="Session room is still being prepared.">
+                      <Video className="h-4 w-4" /> Not ready yet
+                    </span>
+                  )}
                 </div>
               </div>
             )}
@@ -142,8 +149,8 @@ function StudentDashboard() {
                     <td className="px-6 py-3 text-muted-foreground">{b.date} · {fmtTime(b.start_time ?? b.time)}</td>
                     <td className="px-6 py-3"><BookingStatusBadge status={b.status ?? "pending"} /></td>
                     <td className="px-6 py-3 text-right">
-                      {b.status === "upcoming" && (
-                        <Link to="/classroom/$sessionId" params={{ sessionId: String(b.session_id ?? b.id) }} className="text-primary text-sm font-semibold">Join</Link>
+                      {b.status === "upcoming" && b.session_id && (
+                        <Link to="/classroom/$sessionId" params={{ sessionId: String(b.session_id) }} className="text-primary text-sm font-semibold">Join</Link>
                       )}
                       {b.status === "completed" && !b.reviewed && (
                         <Link to="/review/$bookingId" params={{ bookingId: String(b.id) }} className="text-primary text-sm font-semibold">Review</Link>

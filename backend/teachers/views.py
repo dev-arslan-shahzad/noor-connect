@@ -107,6 +107,22 @@ class TeacherDetailView(APIView):
         return envelope(TeacherDetailSerializer(teacher).data)
 
 
+class TeacherMeView(APIView):
+    """Return the currently-authenticated teacher's own profile (any status)."""
+
+    permission_classes = [IsAuthenticated, IsTeacher]
+
+    def get(self, request):
+        profile = getattr(request.user, "teacher_profile", None)
+        if not profile:
+            return error_envelope(
+                "No teacher profile",
+                "You haven't applied yet. POST /api/teachers/apply/ to create one.",
+                status.HTTP_404_NOT_FOUND,
+            )
+        return envelope(TeacherSerializer(profile).data)
+
+
 class TeacherApplyView(APIView):
     permission_classes = [IsAuthenticated, IsTeacher]
     parser_classes = [MultiPartParser, FormParser, JSONParser]

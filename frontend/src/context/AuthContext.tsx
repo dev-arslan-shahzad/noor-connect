@@ -34,14 +34,35 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string) => Promise<AuthUser>;
   logout: () => void;
-  setUser: (u: AuthUser | null) => void;
+  /** Accepts a raw backend user object or a normalized AuthUser (or null to clear). */
+  setUser: (u: any) => void;
+  /** Atomically save tokens + user after register/login and stop loading. */
+  setSession: (params: { access?: string; refresh?: string; user: any }) => AuthUser | null;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUserRaw] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Accepts either a raw backend user (will be normalized) or an already-normalized one.
+  // Always clears the loading flag so callers don't need to.
+  const setUser = useCallback((u: any) => {
+    setUserRaw(u ? normalizeUser(u) : null);
+    setLoading(false);
+  }, []);
+
+  const setSession = useCallback<AuthContextValue["setSession"]>(({ access, refresh, user: raw }) => {
+    if (typeof window !== "undefined") {
+      if (access) localStorage.setItem("access_token", access);
+      if (refresh) localStorage.setItem("refresh_token", refresh);
+    }
+    const normalized = normalizeUser(raw);
+    setUserRaw(normalized);
+    setLoading(false);
+    return normalized;
+  }, []);
 
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
@@ -51,35 +72,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     api
       .get("auth/me/")
-      .then((res) => setUser(normalizeUser(res.data?.data ?? res.data)))
-      .catch(() => setUser(null))
+      .then((res) => setUserRaw(normalizeUser(res.data?.data ?? res.data)))
+      .catch(() => setUserRaw(null))
       .finally(() => setLoading(false));
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await api.post("auth/login/", { email, password });
     const data = res.data?.data ?? res.data;
-    if (data.access) localStorage.setItem("access_token", data.access);
-    if (data.refresh) localStorage.setItem("refresh_token", data.refresh);
     const rawMe =
       data.user ??
       (await api.get("auth/me/")).data?.data ??
       (await api.get("auth/me/")).data;
-    const me = normalizeUser(rawMe);
-    setUser(me);
+    const me = setSession({ access: data.access, refresh: data.refresh, user: rawMe });
     return me as AuthUser;
-  }, []);
+  }, [setSession]);
 
   const logout = useCallback(() => {
-    const refresh = localStorage.getItem("refresh_token");
+    const refresh = typeof window !== "undefined" ? localStorage.getItem("refresh_token") : null;
     api.post("auth/logout/", { refresh }).catch(() => {});
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    setUser(null);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+    }
+    setUserRaw(null);
+    setLoading(false);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, setUser }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, setUser, setSession }}>
       {children}
     </AuthContext.Provider>
   );

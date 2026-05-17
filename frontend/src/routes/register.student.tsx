@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { ErrorMessage } from "@/components/ErrorMessage";
+import { ErrorMessage, formatApiError } from "@/components/ErrorMessage";
 
 export const Route = createFileRoute("/register/student")({
   head: () => ({ meta: [{ title: "Sign Up as Student — NoorConnect" }] }),
@@ -27,7 +27,7 @@ function RegisterStudent() {
   const { register, handleSubmit, watch, formState: { errors } } = useForm<FormValues>({ defaultValues: { for_self: "self" } });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const { setUser } = useAuth();
+  const { setSession } = useAuth();
   const navigate = useNavigate();
   const forSelf = watch("for_self");
 
@@ -49,12 +49,20 @@ function RegisterStudent() {
         child_age: v.for_self === "child" ? v.child_age : null,
       });
       const data = res.data?.data ?? res.data;
-      if (data?.access) localStorage.setItem("access_token", data.access);
-      if (data?.refresh) localStorage.setItem("refresh_token", data.refresh);
-      if (data?.user) setUser(data.user);
-      navigate({ to: "/dashboard/student" });
+      // Atomically persist tokens + set user + clear loading so ProtectedRoute
+      // on the next route doesn't briefly see (loading=true, user=null) and
+      // get stuck on "Checking session...".
+      setSession({ access: data?.access, refresh: data?.refresh, user: data?.user });
+      await navigate({ to: "/dashboard/student" });
     } catch (e: any) {
-      setError(e.response?.data?.detail ?? e.response?.data?.error ?? "Registration failed. Please check your details and the API connection.");
+      // Backend validation errors arrive as `detail: {field: [msg, ...]}` — flatten
+      // to a string so React doesn't choke on rendering an object as a child.
+      setError(
+        formatApiError(
+          e.response?.data?.detail ?? e.response?.data?.error,
+          "Registration failed. Please check your details and the API connection.",
+        ),
+      );
     } finally {
       setSubmitting(false);
     }

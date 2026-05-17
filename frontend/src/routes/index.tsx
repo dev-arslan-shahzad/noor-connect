@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Search, Calendar, Video, ShieldCheck, Users, Globe2, ArrowRight, Quote } from "lucide-react";
-import api from "@/lib/api";
+import api, { normalizeTeachers, unwrapList } from "@/lib/api";
 import { TeacherCard, type Teacher } from "@/components/TeacherCard";
 
 export const Route = createFileRoute("/")({
@@ -27,13 +27,26 @@ function HomePage() {
   const [featured, setFeatured] = useState<Teacher[]>(SAMPLE_TEACHERS);
 
   useEffect(() => {
+    // Try featured first; fall back to highest-rated verified teachers so the
+    // section is never empty in dev.
     api
-      .get("teachers/?featured=true")
+      .get("teachers/", { params: { featured: "true", ordering: "highest_rated" } })
       .then((res) => {
-        const list = res.data?.data ?? res.data?.results ?? res.data;
-        if (Array.isArray(list) && list.length) setFeatured(list.slice(0, 4));
+        const list = normalizeTeachers(unwrapList(res));
+        if (list.length) {
+          setFeatured(list.slice(0, 4));
+          return;
+        }
+        return api
+          .get("teachers/", { params: { ordering: "highest_rated" } })
+          .then((r2) => {
+            const fallback = normalizeTeachers(unwrapList(r2));
+            if (fallback.length) setFeatured(fallback.slice(0, 4));
+          });
       })
-      .catch(() => {/* keep sample */});
+      .catch(() => {
+        /* keep sample */
+      });
   }, []);
 
   return (

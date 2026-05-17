@@ -3,7 +3,7 @@ import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { ErrorMessage } from "@/components/ErrorMessage";
+import { ErrorMessage, formatApiError } from "@/components/ErrorMessage";
 
 export const Route = createFileRoute("/register/teacher")({
   head: () => ({ meta: [{ title: "Become a Teacher — NoorConnect" }] }),
@@ -33,7 +33,7 @@ interface TeacherData {
 }
 
 function RegisterTeacher() {
-  const { setUser } = useAuth();
+  const { setSession } = useAuth();
   const [step, setStep] = useState(1);
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -75,9 +75,10 @@ function RegisterTeacher() {
         city: data.city,
       });
       const regData = reg.data?.data ?? reg.data;
-      if (regData?.access) localStorage.setItem("access_token", regData.access);
-      if (regData?.refresh) localStorage.setItem("refresh_token", regData.refresh);
-      if (regData?.user) setUser(regData.user);
+      // Atomic: persist tokens + set user + clear loading in one batch so
+      // the teachers/apply request that follows is authenticated and any
+      // ProtectedRoute we later land on doesn't flash "Checking session...".
+      setSession({ access: regData?.access, refresh: regData?.refresh, user: regData?.user });
 
       const fd = new FormData();
       fd.append("bio", data.bio);
@@ -101,14 +102,12 @@ function RegisterTeacher() {
       });
       setDone(true);
     } catch (e: any) {
-      const detail = e.response?.data?.detail;
-      const errMsg =
-        typeof detail === "string"
-          ? detail
-          : detail
-            ? JSON.stringify(detail)
-            : e.response?.data?.error ?? "Submission failed. Please verify your inputs.";
-      setError(errMsg);
+      setError(
+        formatApiError(
+          e.response?.data?.detail ?? e.response?.data?.error,
+          "Submission failed. Please verify your inputs.",
+        ),
+      );
     } finally {
       setSubmitting(false);
     }

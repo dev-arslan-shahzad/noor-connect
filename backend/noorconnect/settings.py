@@ -173,9 +173,21 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER", "0") == "1"
 
-# Email (SendGrid via Anymail)
+# Email — picks a backend based on which env vars are set, in priority order:
+#   1. EMAIL_HOST_USER + EMAIL_HOST_PASSWORD  → real SMTP (Gmail / Workspace / etc.)
+#   2. SENDGRID_API_KEY                        → SendGrid via Anymail
+#   3. (fallback)                              → console (prints to runserver terminal)
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@noorconnect.pk")
-if os.getenv("SENDGRID_API_KEY"):
+if os.getenv("EMAIL_HOST_USER") and os.getenv("EMAIL_HOST_PASSWORD"):
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+    EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+    EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "1") == "1"
+    EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "0") == "1"
+    EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
+    EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+    EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))
+elif os.getenv("SENDGRID_API_KEY"):
     EMAIL_BACKEND = "anymail.backends.sendgrid.EmailBackend"
     ANYMAIL = {"SENDGRID_API_KEY": os.getenv("SENDGRID_API_KEY")}
 else:

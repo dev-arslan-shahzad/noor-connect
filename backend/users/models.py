@@ -1,5 +1,9 @@
+import secrets
+from datetime import timedelta
+
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
+from django.utils import timezone
 
 
 class UserManager(BaseUserManager):
@@ -50,6 +54,8 @@ class User(AbstractUser):
     child_name = models.CharField(max_length=100, blank=True)
     child_age = models.IntegerField(null=True, blank=True)
 
+    is_email_verified = models.BooleanField(default=False)
+
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username"]
 
@@ -60,3 +66,42 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+
+class EmailVerificationCode(models.Model):
+    """A short-lived 6-digit code emailed to a user to verify their address."""
+
+    CODE_TTL = timedelta(minutes=15)
+    RESEND_COOLDOWN = timedelta(seconds=60)
+    MAX_ATTEMPTS = 5
+
+    user = models.ForeignKey(
+        "users.User", on_delete=models.CASCADE, related_name="email_codes"
+    )
+    code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        indexes = [models.Index(fields=["user", "used_at"])]
+        ordering = ["-created_at"]
+
+    @classmethod
+    def generate_for(cls, user):
+        # Invalidate any earlier unused codes so only the latest is valid.
+        cls.objects.filter(user=user, used_at__isnull=True).update(
+            used_at=timezone.now()
+        )
+        return cls.objects.create(
+            user=user,
+            code=f"{secrets.randbelow(1_000_000):06d}",
+            expires_at=timezone.now() + cls.CODE_TTL,
+        )
+
+    def is_expired(self):
+        return timezone.now() >= self.expires_at
+
+    def __str__(self):
+        return f"{self.user.email} code (used={self.used_at is not None})"

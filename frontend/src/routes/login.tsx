@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { ErrorMessage } from "@/components/ErrorMessage";
+import { ErrorMessage, formatApiError } from "@/components/ErrorMessage";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Login — NoorConnect" }] }),
@@ -24,7 +24,21 @@ function LoginPage() {
       const user = await login(email, password);
       navigate({ to: user.role === "teacher" ? "/dashboard/teacher" : "/dashboard/student" });
     } catch (e: any) {
-      setError(e.response?.data?.detail ?? "Invalid email or password.");
+      // Backend returns 403 with detail: {code: "email_not_verified", email, message}
+      // when the account exists but hasn't verified its email yet. Send the user
+      // to the verify page (the backend already triggered a fresh code if the
+      // resend cooldown allowed it).
+      const detail = e.response?.data?.detail;
+      if (detail && typeof detail === "object" && detail.code === "email_not_verified") {
+        navigate({ to: "/verify-email", search: { email: detail.email ?? email } });
+        return;
+      }
+      setError(
+        formatApiError(
+          detail ?? e.response?.data?.error,
+          "Invalid email or password.",
+        ),
+      );
     } finally {
       setLoading(false);
     }

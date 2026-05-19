@@ -1,8 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { CheckCircle2 } from "lucide-react";
 import api from "@/lib/api";
-import { useAuth } from "@/context/AuthContext";
 import { ErrorMessage, formatApiError } from "@/components/ErrorMessage";
 
 export const Route = createFileRoute("/register/teacher")({
@@ -33,9 +31,8 @@ interface TeacherData {
 }
 
 function RegisterTeacher() {
-  const { setSession } = useAuth();
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
-  const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,27 +63,21 @@ function RegisterTeacher() {
     setSubmitting(true);
     setError(null);
     try {
-      const reg = await api.post("auth/register/", {
-        role: "teacher",
-        full_name: data.full_name,
-        email: data.email,
-        password: data.password,
-        phone: data.phone,
-        city: data.city,
-      });
-      const regData = reg.data?.data ?? reg.data;
-      // Atomic: persist tokens + set user + clear loading in one batch so
-      // the teachers/apply request that follows is authenticated and any
-      // ProtectedRoute we later land on doesn't flash "Checking session...".
-      setSession({ access: regData?.access, refresh: regData?.refresh, user: regData?.user });
-
+      // Single multipart request: backend creates the User (unverified) + a
+      // pending TeacherProfile in one transaction. No tokens come back —
+      // the user has to verify their email before they can log in.
       const fd = new FormData();
-      fd.append("bio", data.bio);
+      fd.append("role", "teacher");
+      fd.append("full_name", data.full_name);
+      fd.append("email", data.email);
+      fd.append("password", data.password);
+      fd.append("phone", data.phone);
+      fd.append("city", data.city);
       fd.append("gender", data.gender);
+      fd.append("bio", data.bio);
       fd.append("teaching_mode", data.teaching_mode);
       fd.append("years_experience", String(data.years_experience));
       fd.append("hourly_rate", String(data.hourly_rate));
-      fd.append("city", data.city);
       data.subjects.forEach((s) => fd.append("subjects", s));
       data.languages
         .split(",")
@@ -97,10 +88,10 @@ function RegisterTeacher() {
       if (data.certificate) fd.append("certificate", data.certificate);
       if (data.cnic) fd.append("cnic", data.cnic);
 
-      await api.post("teachers/apply/", fd, {
+      await api.post("auth/register/", fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      setDone(true);
+      await navigate({ to: "/verify-email", search: { email: data.email } });
     } catch (e: any) {
       setError(
         formatApiError(
@@ -112,25 +103,6 @@ function RegisterTeacher() {
       setSubmitting(false);
     }
   };
-
-  if (done) {
-    return (
-      <div className="mx-auto max-w-xl px-4 py-20 text-center">
-        <CheckCircle2 className="h-16 w-16 text-success mx-auto" />
-        <h1 className="mt-4 text-2xl font-bold">Application Submitted</h1>
-        <p className="mt-2 text-muted-foreground">
-          Our team will review your documents within 24-48 hours. You'll receive an email when your
-          account is approved.
-        </p>
-        <Link
-          to="/"
-          className="mt-6 inline-block rounded-md bg-primary px-5 py-2.5 text-primary-foreground font-semibold"
-        >
-          Back to Home
-        </Link>
-      </div>
-    );
-  }
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">

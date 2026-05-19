@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as TeachersRouteImport } from './routes/teachers'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as NearbyRouteImport } from './routes/nearby'
@@ -23,6 +24,11 @@ import { Route as DashboardStudentRouteImport } from './routes/dashboard.student
 import { Route as ClassroomSessionIdRouteImport } from './routes/classroom.$sessionId'
 import { Route as BookTeacherIdRouteImport } from './routes/book.$teacherId'
 
+const VerifyEmailRoute = VerifyEmailRouteImport.update({
+  id: '/verify-email',
+  path: '/verify-email',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TeachersRoute = TeachersRouteImport.update({
   id: '/teachers',
   path: '/teachers',
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/nearby': typeof NearbyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/teachers': typeof TeachersRouteWithChildren
+  '/verify-email': typeof VerifyEmailRoute
   '/book/$teacherId': typeof BookTeacherIdRoute
   '/classroom/$sessionId': typeof ClassroomSessionIdRoute
   '/dashboard/student': typeof DashboardStudentRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/nearby': typeof NearbyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/teachers': typeof TeachersRouteWithChildren
+  '/verify-email': typeof VerifyEmailRoute
   '/book/$teacherId': typeof BookTeacherIdRoute
   '/classroom/$sessionId': typeof ClassroomSessionIdRoute
   '/dashboard/student': typeof DashboardStudentRoute
@@ -126,6 +134,7 @@ export interface FileRoutesById {
   '/nearby': typeof NearbyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/teachers': typeof TeachersRouteWithChildren
+  '/verify-email': typeof VerifyEmailRoute
   '/book/$teacherId': typeof BookTeacherIdRoute
   '/classroom/$sessionId': typeof ClassroomSessionIdRoute
   '/dashboard/student': typeof DashboardStudentRoute
@@ -143,6 +152,7 @@ export interface FileRouteTypes {
     | '/nearby'
     | '/sitemap.xml'
     | '/teachers'
+    | '/verify-email'
     | '/book/$teacherId'
     | '/classroom/$sessionId'
     | '/dashboard/student'
@@ -158,6 +168,7 @@ export interface FileRouteTypes {
     | '/nearby'
     | '/sitemap.xml'
     | '/teachers'
+    | '/verify-email'
     | '/book/$teacherId'
     | '/classroom/$sessionId'
     | '/dashboard/student'
@@ -173,6 +184,7 @@ export interface FileRouteTypes {
     | '/nearby'
     | '/sitemap.xml'
     | '/teachers'
+    | '/verify-email'
     | '/book/$teacherId'
     | '/classroom/$sessionId'
     | '/dashboard/student'
@@ -189,6 +201,7 @@ export interface RootRouteChildren {
   NearbyRoute: typeof NearbyRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TeachersRoute: typeof TeachersRouteWithChildren
+  VerifyEmailRoute: typeof VerifyEmailRoute
   BookTeacherIdRoute: typeof BookTeacherIdRoute
   ClassroomSessionIdRoute: typeof ClassroomSessionIdRoute
   DashboardStudentRoute: typeof DashboardStudentRoute
@@ -200,6 +213,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/verify-email': {
+      id: '/verify-email'
+      path: '/verify-email'
+      fullPath: '/verify-email'
+      preLoaderRoute: typeof VerifyEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/teachers': {
       id: '/teachers'
       path: '/teachers'
@@ -312,6 +332,7 @@ const rootRouteChildren: RootRouteChildren = {
   NearbyRoute: NearbyRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TeachersRoute: TeachersRouteWithChildren,
+  VerifyEmailRoute: VerifyEmailRoute,
   BookTeacherIdRoute: BookTeacherIdRoute,
   ClassroomSessionIdRoute: ClassroomSessionIdRoute,
   DashboardStudentRoute: DashboardStudentRoute,

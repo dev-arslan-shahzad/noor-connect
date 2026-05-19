@@ -2,7 +2,6 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
-import { useAuth } from "@/context/AuthContext";
 import { ErrorMessage, formatApiError } from "@/components/ErrorMessage";
 
 export const Route = createFileRoute("/register/student")({
@@ -27,7 +26,6 @@ function RegisterStudent() {
   const { register, handleSubmit, watch, formState: { errors } } = useForm<FormValues>({ defaultValues: { for_self: "self" } });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const { setSession } = useAuth();
   const navigate = useNavigate();
   const forSelf = watch("for_self");
 
@@ -37,7 +35,7 @@ function RegisterStudent() {
     if (!v.terms) { setError("Please accept the terms"); return; }
     setSubmitting(true);
     try {
-      const res = await api.post("auth/register/", {
+      await api.post("auth/register/", {
         role: "student",
         full_name: v.full_name,
         email: v.email,
@@ -48,15 +46,11 @@ function RegisterStudent() {
         child_name: v.for_self === "child" ? v.child_name : "",
         child_age: v.for_self === "child" ? v.child_age : null,
       });
-      const data = res.data?.data ?? res.data;
-      // Atomically persist tokens + set user + clear loading so ProtectedRoute
-      // on the next route doesn't briefly see (loading=true, user=null) and
-      // get stuck on "Checking session...".
-      setSession({ access: data?.access, refresh: data?.refresh, user: data?.user });
-      await navigate({ to: "/dashboard/student" });
+      // Backend created the account unverified and emailed a 6-digit code.
+      // No tokens are issued until the user verifies, so just hop to the
+      // verification page with the email pre-filled.
+      await navigate({ to: "/verify-email", search: { email: v.email } });
     } catch (e: any) {
-      // Backend validation errors arrive as `detail: {field: [msg, ...]}` — flatten
-      // to a string so React doesn't choke on rendering an object as a child.
       setError(
         formatApiError(
           e.response?.data?.detail ?? e.response?.data?.error,

@@ -1,7 +1,9 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import api from "@/lib/api";
 import { ErrorMessage, formatApiError } from "@/components/ErrorMessage";
+import { useAuth } from "@/context/AuthContext";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 export const Route = createFileRoute("/register/teacher")({
   head: () => ({ meta: [{ title: "Become a Teacher — NoorConnect" }] }),
@@ -31,6 +33,7 @@ interface TeacherData {
 }
 
 function RegisterTeacher() {
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
@@ -103,6 +106,9 @@ function RegisterTeacher() {
       setSubmitting(false);
     }
   };
+
+  if (loading) return <LoadingSpinner label="Checking session..." />;
+  if (user) return <Navigate to={user.role === "teacher" ? "/dashboard/teacher" : "/dashboard/student"} />;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">

@@ -1,10 +1,11 @@
-import { createFileRoute, useNavigate, useSearch, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch, Link, Navigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Mail } from "lucide-react";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { ErrorMessage, formatApiError } from "@/components/ErrorMessage";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 interface VerifyEmailSearch {
   email?: string;
@@ -21,13 +22,16 @@ export const Route = createFileRoute("/verify-email")({
 function VerifyEmail() {
   const { email } = useSearch({ from: "/verify-email" });
   const navigate = useNavigate();
-  const { setSession } = useAuth();
+  const { setSession, user, loading } = useAuth();
 
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+
+  if (loading) return <LoadingSpinner label="Checking session..." />;
+  if (user) return <Navigate to={user.role === "teacher" ? "/dashboard/teacher" : "/dashboard/student"} />;
 
   // Tick the resend cooldown down to 0 once a second.
   useEffect(() => {

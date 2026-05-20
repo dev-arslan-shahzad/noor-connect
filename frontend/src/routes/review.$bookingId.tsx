@@ -1,9 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { StarRating } from "@/components/StarRating";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 export const Route = createFileRoute("/review/$bookingId")({
   head: () => ({ meta: [{ title: "Leave a Review — NoorConnect" }] }),
@@ -13,10 +14,36 @@ export const Route = createFileRoute("/review/$bookingId")({
 function ReviewPage() {
   const { bookingId } = Route.useParams();
   const navigate = useNavigate();
+  const [teacherName, setTeacherName] = useState<string | null>(null);
+  const [alreadyReviewed, setAlreadyReviewed] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    api
+      .get(`bookings/${bookingId}/`)
+      .then((res) => {
+        if (cancelled) return;
+        const data = res.data?.data ?? res.data;
+        setTeacherName(data?.teacher_name ?? null);
+        setAlreadyReviewed(Boolean(data?.reviewed));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setTeacherName(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [bookingId]);
 
   const submit = async () => {
     setSubmitting(true); setError(null);
@@ -30,6 +57,32 @@ function ReviewPage() {
     }
   };
 
+  if (loading) return <LoadingSpinner label="Loading review..." />;
+
+  const displayName = teacherName ?? "Teacher";
+  const initial = displayName.charAt(0).toUpperCase();
+
+  if (alreadyReviewed) {
+    return (
+      <div className="mx-auto max-w-xl px-4 py-12">
+        <div className="rounded-xl border border-border bg-card p-8">
+          <h1 className="text-2xl font-bold">Review already submitted</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            You have already reviewed this session.
+          </p>
+          <div className="mt-6">
+            <button
+              onClick={() => navigate({ to: "/dashboard/student" })}
+              className="w-full rounded-md bg-primary py-3 font-semibold text-primary-foreground hover:bg-primary-dark"
+            >
+              Back to Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-xl px-4 py-12">
       <div className="rounded-xl border border-border bg-card p-8">
@@ -37,9 +90,11 @@ function ReviewPage() {
         <p className="text-sm text-muted-foreground mt-1">Help other students by sharing your experience.</p>
 
         <div className="mt-6 flex items-center gap-3">
-          <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">U</div>
+          <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
+            {initial}
+          </div>
           <div>
-            <p className="font-semibold">Ustadh Ahmed Khan</p>
+            <p className="font-semibold">{displayName}</p>
             <p className="text-xs text-muted-foreground">Booking #{bookingId}</p>
           </div>
         </div>

@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { MapPin, Monitor, Users } from "lucide-react";
 import { StarRating } from "./StarRating";
 import { VerifiedBadge } from "./VerifiedBadge";
+import { useAuth } from "@/context/AuthContext";
 
 export interface Teacher {
   id: string | number;
@@ -19,6 +20,7 @@ export interface Teacher {
 }
 
 export function TeacherCard({ teacher }: { teacher: Teacher }) {
+  const { user } = useAuth();
   const name = teacher.full_name ?? teacher.name ?? "Teacher";
   const photo = teacher.avatar ?? teacher.photo;
   const subjects = teacher.subjects ?? [];
@@ -26,6 +28,7 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
   const modeLabel =
     mode === "both" ? "Online & In-person" : mode === "in-person" ? "In-person" : "Online";
   const ModeIcon = mode === "in-person" ? Users : Monitor;
+  const canBook = user?.role === "student";
 
   return (
     <article className="group flex flex-col rounded-xl border border-border bg-card p-5 transition hover:shadow-md hover:border-primary/30">
@@ -83,13 +86,24 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
             <span className="text-xs text-muted-foreground font-normal">/hr</span>
           </p>
         </div>
-        <Link
-          to="/teachers/$id"
-          params={{ id: String(teacher.id) }}
-          className="inline-flex items-center justify-center rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition hover:bg-primary-dark"
-        >
-          View Profile
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/teachers/$id"
+            params={{ id: String(teacher.id) }}
+            className="inline-flex items-center justify-center rounded-md border border-input px-3 py-1.5 text-sm font-medium text-foreground transition hover:bg-accent"
+          >
+            View Profile
+          </Link>
+          {canBook && (
+            <Link
+              to="/book/$teacherId"
+              params={{ teacherId: String(teacher.id) }}
+              className="inline-flex items-center justify-center rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition hover:bg-primary-dark"
+            >
+              Book Now
+            </Link>
+          )}
+        </div>
       </div>
     </article>
   );

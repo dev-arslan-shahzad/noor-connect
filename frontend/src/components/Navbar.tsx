@@ -22,14 +22,13 @@ export function Navbar() {
         </Link>
 
         <nav className="hidden md:flex items-center gap-7 text-sm font-medium">
+          {user && (
+            <Link to={dashboardPath} className="text-foreground/80 hover:text-primary transition">
+              Dashboard
+            </Link>
+          )}
           <Link to="/teachers" className="text-foreground/80 hover:text-primary transition">
             Find a Teacher
-          </Link>
-          <Link to="/nearby" className="text-foreground/80 hover:text-primary transition">
-            Nearby Tutors
-          </Link>
-          <Link to="/register/teacher" className="text-foreground/80 hover:text-primary transition">
-            Become a Teacher
           </Link>
         </nav>
 
@@ -95,15 +94,15 @@ export function Navbar() {
         </button>
       </div>
 
-      {open && (
+        {open && (
         <div className="md:hidden border-t border-border bg-background px-4 py-3 flex flex-col gap-2">
+          {user && (
+            <Link to={dashboardPath} onClick={() => setOpen(false)} className="py-2">Dashboard</Link>
+          )}
           <Link to="/teachers" onClick={() => setOpen(false)} className="py-2">Find a Teacher</Link>
-          <Link to="/nearby" onClick={() => setOpen(false)} className="py-2">Nearby Tutors</Link>
-          <Link to="/register/teacher" onClick={() => setOpen(false)} className="py-2">Become a Teacher</Link>
           <div className="border-t border-border pt-2 flex flex-col gap-2">
             {user ? (
               <>
-                <Link to={dashboardPath} onClick={() => setOpen(false)} className="py-2">Dashboard</Link>
                 <button
                   onClick={() => { setOpen(false); logout(); navigate({ to: "/" }); }}
                   className="text-left py-2 text-destructive"

@@ -9,6 +9,7 @@ class BookingSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source="student.get_full_name", read_only=True)
     student_id = serializers.IntegerField(source="student.id", read_only=True)
     session_id = serializers.SerializerMethodField()
+    reviewed = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
@@ -27,6 +28,7 @@ class BookingSerializer(serializers.ModelSerializer):
             "meet_link",
             "meet_room_id",
             "session_id",
+            "reviewed",
             "price",
             "created_at",
         ]
@@ -35,6 +37,9 @@ class BookingSerializer(serializers.ModelSerializer):
     def get_session_id(self, obj):
         session = getattr(obj, "session", None)
         return session.id if session else None
+
+    def get_reviewed(self, obj):
+        return getattr(obj, "review", None) is not None
 
 
 class BookingCreateSerializer(serializers.Serializer):

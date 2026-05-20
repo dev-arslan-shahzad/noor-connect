@@ -1,7 +1,8 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { ErrorMessage, formatApiError } from "@/components/ErrorMessage";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Login — NoorConnect" }] }),
@@ -9,17 +10,20 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const { login } = useAuth();
+  const { login, user, loading } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState<"student" | "teacher">("student");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  if (loading) return <LoadingSpinner label="Checking session..." />;
+  if (user) return <Navigate to={user.role === "teacher" ? "/dashboard/teacher" : "/dashboard/student"} />;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null); setLoading(true);
+    setError(null); setSubmitting(true);
     try {
       const user = await login(email, password);
       navigate({ to: user.role === "teacher" ? "/dashboard/teacher" : "/dashboard/student" });
@@ -40,7 +44,7 @@ function LoginPage() {
         ),
       );
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -72,8 +76,8 @@ function LoginPage() {
             <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
           </div>
           <ErrorMessage message={error} />
-          <button disabled={loading} className="w-full rounded-md bg-primary py-2.5 font-semibold text-primary-foreground hover:bg-primary-dark disabled:opacity-50">
-            {loading ? "Signing in..." : "Login"}
+          <button disabled={submitting} className="w-full rounded-md bg-primary py-2.5 font-semibold text-primary-foreground hover:bg-primary-dark disabled:opacity-50">
+            {submitting ? "Signing in..." : "Login"}
           </button>
           {tab === "teacher" && (
             <button type="button" className="w-full rounded-md border border-input py-2.5 text-sm font-medium hover:bg-accent">

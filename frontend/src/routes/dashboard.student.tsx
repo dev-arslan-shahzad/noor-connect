@@ -5,6 +5,7 @@ import api, { unwrapList } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { BookingStatusBadge } from "@/components/BookingStatusBadge";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 export const Route = createFileRoute("/dashboard/student")({
   head: () => ({ meta: [{ title: "Student Dashboard — NoorConnect" }] }),
@@ -25,12 +26,6 @@ interface Booking {
   meet_link?: string;
 }
 
-const SAMPLE_BOOKINGS: Booking[] = [
-  { id: 1, teacher_name: "Ustadh Ahmed Khan", subject: "Tajweed", date: "2026-05-14", start_time: "17:00:00", end_time: "18:00:00", status: "upcoming", meet_link: "https://meet.google.com/abc-defg-hij" },
-  { id: 2, teacher_name: "Ustadha Aisha Siddiqui", subject: "Nazra", date: "2026-05-10", start_time: "16:00:00", end_time: "17:00:00", status: "completed", reviewed: false },
-  { id: 3, teacher_name: "Sheikh Bilal Hassan", subject: "Tajweed", date: "2026-05-02", start_time: "18:00:00", end_time: "19:00:00", status: "completed", reviewed: true },
-];
-
 function fmtTime(t?: string) {
   if (!t) return "";
   const [h, m] = t.split(":");
@@ -43,13 +38,20 @@ function fmtTime(t?: string) {
 function StudentDashboard() {
   const { user, logout } = useAuth();
   const [tab, setTab] = useState<"overview" | "bookings" | "sessions">("overview");
-  const [bookings, setBookings] = useState<Booking[]>(SAMPLE_BOOKINGS);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loadingBookings, setLoadingBookings] = useState(true);
 
   useEffect(() => {
-    api.get("bookings/").then((r) => {
-      const list = unwrapList<Booking>(r);
-      if (list.length) setBookings(list);
-    }).catch(() => {});
+    setLoadingBookings(true);
+    api.get("bookings/")
+      .then((r) => {
+        const list = unwrapList<Booking>(r);
+        setBookings(list);
+      })
+      .catch(() => {
+        setBookings([]);
+      })
+      .finally(() => setLoadingBookings(false));
     // Mark "reviewed" status by fetching the student's reviews
     api.get("reviews/").then((r) => {
       const reviews = unwrapList<{ booking: number }>(r);
@@ -103,7 +105,9 @@ function StudentDashboard() {
               <Stat label="Teachers booked" value={new Set(bookings.map((b) => b.teacher_name)).size} />
             </div>
 
-            {upcoming[0] ? (
+            {loadingBookings ? (
+              <LoadingSpinner label="Loading sessions..." />
+            ) : upcoming[0] ? (
               <div className="rounded-xl border border-border bg-card p-6">
                 <h2 className="font-semibold mb-3">Next session</h2>
                 <div className="flex flex-wrap items-center gap-4">
@@ -151,55 +155,67 @@ function StudentDashboard() {
         {tab === "bookings" && (
           <div className="rounded-xl border border-border bg-card overflow-hidden">
             <div className="p-6 border-b border-border"><h2 className="font-semibold">My Bookings</h2></div>
-            <table className="w-full text-sm">
-              <thead className="bg-surface text-left text-xs uppercase text-muted-foreground">
-                <tr>
-                  <th className="px-6 py-3">Teacher</th>
-                  <th className="px-6 py-3">Subject</th>
-                  <th className="px-6 py-3">Date</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {bookings.map((b) => (
-                  <tr key={b.id}>
-                    <td className="px-6 py-3 font-medium">{b.teacher_name}</td>
-                    <td className="px-6 py-3 text-muted-foreground">{b.subject}</td>
-                    <td className="px-6 py-3 text-muted-foreground">{b.date} · {fmtTime(b.start_time ?? b.time)}</td>
-                    <td className="px-6 py-3"><BookingStatusBadge status={b.status ?? "pending"} /></td>
-                    <td className="px-6 py-3 text-right">
-                      {b.status === "upcoming" && b.session_id && (
-                        <Link to="/classroom/$sessionId" params={{ sessionId: String(b.session_id) }} className="text-primary text-sm font-semibold">Join</Link>
-                      )}
-                      {b.status === "completed" && !b.reviewed && (
-                        <Link to="/review/$bookingId" params={{ bookingId: String(b.id) }} className="text-primary text-sm font-semibold">Review</Link>
-                      )}
-                    </td>
+            {loadingBookings ? (
+              <LoadingSpinner label="Loading bookings..." />
+            ) : bookings.length === 0 ? (
+              <div className="p-6 text-sm text-muted-foreground">No bookings yet.</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-surface text-left text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="px-6 py-3">Teacher</th>
+                    <th className="px-6 py-3">Subject</th>
+                    <th className="px-6 py-3">Date</th>
+                    <th className="px-6 py-3">Status</th>
+                    <th className="px-6 py-3 text-right">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {bookings.map((b) => (
+                    <tr key={b.id}>
+                      <td className="px-6 py-3 font-medium">{b.teacher_name}</td>
+                      <td className="px-6 py-3 text-muted-foreground">{b.subject}</td>
+                      <td className="px-6 py-3 text-muted-foreground">{b.date} · {fmtTime(b.start_time ?? b.time)}</td>
+                      <td className="px-6 py-3"><BookingStatusBadge status={b.status ?? "pending"} /></td>
+                      <td className="px-6 py-3 text-right">
+                        {b.status === "upcoming" && b.session_id && (
+                          <Link to="/classroom/$sessionId" params={{ sessionId: String(b.session_id) }} className="text-primary text-sm font-semibold">Join</Link>
+                        )}
+                        {b.status === "completed" && !b.reviewed && (
+                          <Link to="/review/$bookingId" params={{ bookingId: String(b.id) }} className="text-primary text-sm font-semibold">Review</Link>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
 
         {tab === "sessions" && (
           <div className="space-y-3">
             <h2 className="font-semibold text-lg">Past Sessions</h2>
-            {completed.map((b) => (
-              <div key={b.id} className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
-                <div>
-                  <p className="font-semibold">{b.teacher_name} · <span className="text-muted-foreground font-normal">{b.subject}</span></p>
-                  <p className="text-xs text-muted-foreground">{b.date} · {fmtTime(b.start_time ?? b.time)}</p>
+            {loadingBookings ? (
+              <LoadingSpinner label="Loading sessions..." />
+            ) : completed.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No completed sessions yet.</p>
+            ) : (
+              completed.map((b) => (
+                <div key={b.id} className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
+                  <div>
+                    <p className="font-semibold">{b.teacher_name} · <span className="text-muted-foreground font-normal">{b.subject}</span></p>
+                    <p className="text-xs text-muted-foreground">{b.date} · {fmtTime(b.start_time ?? b.time)}</p>
+                  </div>
+                  {!b.reviewed && (
+                    <Link to="/review/$bookingId" params={{ bookingId: String(b.id) }}
+                      className="inline-flex items-center gap-1 text-sm font-semibold text-primary">
+                      <Star className="h-4 w-4" /> Leave a review
+                    </Link>
+                  )}
                 </div>
-                {!b.reviewed && (
-                  <Link to="/review/$bookingId" params={{ bookingId: String(b.id) }}
-                    className="inline-flex items-center gap-1 text-sm font-semibold text-primary">
-                    <Star className="h-4 w-4" /> Leave a review
-                  </Link>
-                )}
-              </div>
-            ))}
+              ))
+            )}
           </div>
         )}
       </div>

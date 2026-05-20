@@ -75,3 +75,4 @@ prompt.txt
 *.scratch
 
 .claude/
+env/

@@ -23,15 +23,6 @@ export const Route = createFileRoute("/teachers")({
 const SUBJECTS = ["Noorani Qaida", "Nazra", "Tajweed", "Hifz", "Islamic Studies"];
 const CITIES = ["All", "Lahore", "Karachi", "Islamabad", "Multan", "Peshawar"];
 
-const SAMPLE: Teacher[] = [
-  { id: 1, full_name: "Ustadh Ahmed Khan", subjects: ["Tajweed", "Hifz"], city: "Lahore", mode: "online", hourly_rate: 1200, rating: 4.9, reviews_count: 128, verified: true },
-  { id: 2, full_name: "Ustadha Aisha Siddiqui", subjects: ["Noorani Qaida", "Nazra"], city: "Karachi", mode: "both", hourly_rate: 900, rating: 4.8, reviews_count: 92, verified: true },
-  { id: 3, full_name: "Sheikh Bilal Hassan", subjects: ["Tajweed", "Islamic Studies"], city: "Islamabad", mode: "online", hourly_rate: 1500, rating: 5.0, reviews_count: 64, verified: true },
-  { id: 4, full_name: "Ustadha Maryam Noor", subjects: ["Hifz", "Tajweed"], city: "Multan", mode: "both", hourly_rate: 1100, rating: 4.7, reviews_count: 45, verified: true },
-  { id: 5, full_name: "Ustadh Yusuf Iqbal", subjects: ["Noorani Qaida"], city: "Lahore", mode: "in-person", hourly_rate: 800, rating: 4.6, reviews_count: 38, verified: true },
-  { id: 6, full_name: "Ustadha Khadija Rehman", subjects: ["Nazra", "Islamic Studies"], city: "Karachi", mode: "online", hourly_rate: 1000, rating: 4.9, reviews_count: 71, verified: true },
-];
-
 const MODE_TO_BACKEND: Record<string, string> = {
   online: "online",
   "in-person": "inperson",
@@ -39,8 +30,8 @@ const MODE_TO_BACKEND: Record<string, string> = {
 };
 
 function TeacherSearchPage() {
-  const [teachers, setTeachers] = useState<Teacher[]>(SAMPLE);
-  const [loading, setLoading] = useState(false);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [loadingTeachers, setLoadingTeachers] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // filters
@@ -69,18 +60,19 @@ function TeacherSearchPage() {
   }, [search, subjects, gender, mode, city, maxPrice, minRating, ordering]);
 
   useEffect(() => {
-    setLoading(true);
+    setLoadingTeachers(true);
     setError(null);
     api
       .get("teachers/", { params })
       .then((res) => {
         const list = normalizeTeachers(unwrapList(res));
-        setTeachers(list.length ? list : SAMPLE);
+        setTeachers(list);
       })
       .catch(() => {
-        setTeachers(SAMPLE);
+        setError("Could not load teachers. Please try again.");
+        setTeachers([]);
       })
-      .finally(() => setLoading(false));
+      .finally(() => setLoadingTeachers(false));
   }, [params]);
 
   const toggleSubject = (s: string) =>
@@ -186,8 +178,8 @@ function TeacherSearchPage() {
           </div>
 
           <ErrorMessage message={error} />
-          {loading ? (
-            <LoadingSpinner />
+          {loadingTeachers ? (
+            <LoadingSpinner label="Loading teachers..." size="lg" fullScreen />
           ) : teachers.length === 0 ? (
             <p className="text-center py-12 text-muted-foreground">No teachers match your filters.</p>
           ) : (

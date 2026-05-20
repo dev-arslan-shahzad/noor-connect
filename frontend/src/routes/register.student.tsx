@@ -1,8 +1,10 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
 import { ErrorMessage, formatApiError } from "@/components/ErrorMessage";
+import { useAuth } from "@/context/AuthContext";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 export const Route = createFileRoute("/register/student")({
   head: () => ({ meta: [{ title: "Sign Up as Student — NoorConnect" }] }),
@@ -23,11 +25,15 @@ interface FormValues {
 }
 
 function RegisterStudent() {
+  const { user, loading } = useAuth();
   const { register, handleSubmit, watch, formState: { errors } } = useForm<FormValues>({ defaultValues: { for_self: "self" } });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
   const forSelf = watch("for_self");
+
+  if (loading) return <LoadingSpinner label="Checking session..." />;
+  if (user) return <Navigate to={user.role === "teacher" ? "/dashboard/teacher" : "/dashboard/student"} />;
 
   const onSubmit = async (v: FormValues) => {
     setError(null);

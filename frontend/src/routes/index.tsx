@@ -1,8 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Search, Calendar, Video, ShieldCheck, Users, Globe2, ArrowRight, Quote } from "lucide-react";
 import api, { normalizeTeachers, unwrapList } from "@/lib/api";
 import { TeacherCard, type Teacher } from "@/components/TeacherCard";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { useAuth } from "@/context/AuthContext";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -16,37 +18,28 @@ export const Route = createFileRoute("/")({
   component: HomePage,
 });
 
-const SAMPLE_TEACHERS: Teacher[] = [
-  { id: 1, full_name: "Ustadh Ahmed Khan", subjects: ["Tajweed", "Hifz"], city: "Lahore", mode: "online", hourly_rate: 1200, rating: 4.9, reviews_count: 128, verified: true },
-  { id: 2, full_name: "Ustadha Aisha Siddiqui", subjects: ["Noorani Qaida", "Nazra"], city: "Karachi", mode: "both", hourly_rate: 900, rating: 4.8, reviews_count: 92, verified: true },
-  { id: 3, full_name: "Sheikh Bilal Hassan", subjects: ["Tajweed", "Islamic Studies"], city: "Islamabad", mode: "online", hourly_rate: 1500, rating: 5.0, reviews_count: 64, verified: true },
-  { id: 4, full_name: "Ustadha Maryam Noor", subjects: ["Hifz", "Tajweed"], city: "Multan", mode: "both", hourly_rate: 1100, rating: 4.7, reviews_count: 45, verified: true },
-];
-
 function HomePage() {
-  const [featured, setFeatured] = useState<Teacher[]>(SAMPLE_TEACHERS);
+  const { user, loading } = useAuth();
+  const [featured, setFeatured] = useState<Teacher[]>([]);
+  const [loadingFeatured, setLoadingFeatured] = useState(true);
+
+  if (loading) return <LoadingSpinner label="Checking session..." />;
+  if (user) {
+    return <Navigate to={user.role === "teacher" ? "/dashboard/teacher" : "/dashboard/student"} />;
+  }
 
   useEffect(() => {
-    // Try featured first; fall back to highest-rated verified teachers so the
-    // section is never empty in dev.
+    setLoadingFeatured(true);
     api
       .get("teachers/", { params: { featured: "true", ordering: "highest_rated" } })
       .then((res) => {
         const list = normalizeTeachers(unwrapList(res));
-        if (list.length) {
-          setFeatured(list.slice(0, 4));
-          return;
-        }
-        return api
-          .get("teachers/", { params: { ordering: "highest_rated" } })
-          .then((r2) => {
-            const fallback = normalizeTeachers(unwrapList(r2));
-            if (fallback.length) setFeatured(fallback.slice(0, 4));
-          });
+        setFeatured(list.slice(0, 4));
       })
       .catch(() => {
-        /* keep sample */
-      });
+        setFeatured([]);
+      })
+      .finally(() => setLoadingFeatured(false));
   }, []);
 
   return (
@@ -89,19 +82,31 @@ function HomePage() {
           <div className="hidden lg:block relative">
             <div className="absolute -inset-4 rounded-3xl bg-gold/20 blur-3xl" />
             <div className="relative grid grid-cols-2 gap-4">
-              {SAMPLE_TEACHERS.slice(0, 4).map((t, i) => (
-                <div
-                  key={t.id}
-                  className={`rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 p-5 ${i % 2 === 0 ? "translate-y-4" : ""}`}
-                >
-                  <div className="h-12 w-12 rounded-full bg-gold/30 flex items-center justify-center font-bold">
-                    {t.full_name?.charAt(0)}
-                  </div>
-                  <p className="mt-3 font-semibold">{t.full_name}</p>
-                  <p className="text-xs text-primary-foreground/70">{t.subjects?.join(" · ")}</p>
-                  <p className="mt-2 text-xs text-gold">★ {t.rating} ({t.reviews_count})</p>
+              {loadingFeatured ? (
+                <div className="col-span-2 rounded-2xl bg-white/10 border border-white/20 p-8">
+                  <LoadingSpinner label="Loading featured teachers..." size="sm" />
                 </div>
-              ))}
+              ) : featured.length > 0 ? (
+                featured.slice(0, 4).map((t, i) => (
+                  <div
+                    key={t.id}
+                    className={`rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 p-5 ${i % 2 === 0 ? "translate-y-4" : ""}`}
+                  >
+                    <div className="h-12 w-12 rounded-full bg-gold/30 flex items-center justify-center font-bold">
+                      {t.full_name?.charAt(0)}
+                    </div>
+                    <p className="mt-3 font-semibold">{t.full_name}</p>
+                    <p className="text-xs text-primary-foreground/70">{t.subjects?.join(" · ")}</p>
+                    {t.rating !== undefined && (
+                      <p className="mt-2 text-xs text-gold">★ {t.rating} ({t.reviews_count})</p>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-2 rounded-2xl bg-white/10 border border-white/20 p-8 text-center">
+                  <p className="text-sm text-primary-foreground/80">No featured teachers yet.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -167,11 +172,19 @@ function HomePage() {
             View all <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {featured.map((t) => (
-            <TeacherCard key={t.id} teacher={t} />
-          ))}
-        </div>
+        {loadingFeatured ? (
+          <LoadingSpinner label="Loading featured teachers..." />
+        ) : featured.length === 0 ? (
+          <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+            No featured teachers yet.
+          </div>
+        ) : (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {featured.map((t) => (
+              <TeacherCard key={t.id} teacher={t} />
+            ))}
+          </div>
+        )}
       </section>
 
       {/* TESTIMONIALS */}

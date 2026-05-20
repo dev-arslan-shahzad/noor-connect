@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Calendar, Globe2, GraduationCap, MapPin, Monitor, Share2, Users } from "lucide-react";
+import { Calendar, Globe2, GraduationCap, MapPin, Monitor, Share2 } from "lucide-react";
 import api, { normalizeTeacher, unwrap, unwrapList } from "@/lib/api";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { StarRating } from "@/components/StarRating";
@@ -41,58 +41,44 @@ interface Review {
   created_at?: string;
 }
 
-const FALLBACK: Teacher = {
-  id: "1",
-  full_name: "Ustadh Ahmed Khan",
-  bio: "Hafiz-ul-Quran with 12 years of teaching experience. Specializes in Tajweed and Hifz for children and adults. Patient, structured, and warm.",
-  subjects: ["Tajweed", "Hifz", "Nazra"],
-  languages: ["Urdu", "English", "Arabic"],
-  mode: "both",
-  experience: 12,
-  city: "Lahore",
-  hourly_rate: 1200,
-  rating: 4.9,
-  reviews_count: 128,
-  verified: true,
-};
-
-const FALLBACK_REVIEWS: Review[] = [
-  { id: 1, student_name: "Fatima R.", rating: 5, comment: "Excellent teacher. My son made huge progress in 2 months." },
-  { id: 2, student_name: "Hamza A.", rating: 5, comment: "Very patient and thorough with Tajweed rules." },
-  { id: 3, student_name: "Sara M.", rating: 4, comment: "Great teacher, sessions are well-paced." },
-];
-
 function TeacherProfilePage() {
   const { id } = Route.useParams();
   const [teacher, setTeacher] = useState<Teacher | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingTeacher, setLoadingTeacher] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setLoading(true);
+    setLoadingTeacher(true);
+    setError(null);
     Promise.allSettled([
       api.get(`teachers/${id}/`).then((r) => normalizeTeacher(unwrap(r))),
       api.get(`reviews/`, { params: { teacher: id } }).then((r) => unwrapList<Review>(r)),
     ]).then(([t, r]) => {
-      const teacherData = t.status === "fulfilled" && t.value ? (t.value as any) : FALLBACK;
-      const teacherWithReviews =
-        teacherData && t.status === "fulfilled" && (t.value as any)?.reviews?.length
-          ? { ...teacherData, reviews: undefined }
-          : teacherData;
-      setTeacher(teacherWithReviews);
-      const fetchedReviews =
-        t.status === "fulfilled" && (t.value as any)?.reviews?.length
-          ? ((t.value as any).reviews as Review[])
-          : r.status === "fulfilled" && r.value.length
-            ? r.value
-            : FALLBACK_REVIEWS;
-      setReviews(fetchedReviews);
-      setLoading(false);
+      if (t.status === "fulfilled" && t.value) {
+        const teacherWithReviews =
+          (t.value as any)?.reviews?.length
+            ? { ...(t.value as any), reviews: undefined }
+            : (t.value as any);
+        setTeacher(teacherWithReviews);
+        if (t.status === "fulfilled" && (t.value as any)?.reviews?.length) {
+          setReviews((t.value as any).reviews as Review[]);
+        } else if (r.status === "fulfilled") {
+          setReviews(r.value ?? []);
+        } else {
+          setReviews([]);
+        }
+      } else {
+        setTeacher(null);
+        setReviews([]);
+        setError("Teacher not found.");
+      }
+      setLoadingTeacher(false);
     });
   }, [id]);
 
-  if (loading) return <LoadingSpinner label="Loading teacher..." />;
-  if (!teacher) return <div className="p-12 text-center">Teacher not found.</div>;
+  if (loadingTeacher) return <LoadingSpinner label="Loading teacher..." size="lg" fullScreen />;
+  if (!teacher) return <div className="p-12 text-center">{error ?? "Teacher not found."}</div>;
 
   const modeLabel =
     teacher.mode === "both" ? "Online & In-person" : teacher.mode === "in-person" ? "In-person" : "Online";
@@ -145,22 +131,26 @@ function TeacherProfilePage() {
               <h2 className="font-semibold text-lg">Reviews</h2>
               <StarRating value={teacher.rating ?? 0} count={teacher.reviews_count} />
             </div>
-            <div className="space-y-4 divide-y divide-border">
-              {reviews.map((r) => (
-                <div key={r.id} className="pt-4 first:pt-0">
-                  <div className="flex items-center gap-3 mb-1">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">
-                      {r.student_name?.charAt(0)}
+            {reviews.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No reviews yet.</p>
+            ) : (
+              <div className="space-y-4 divide-y divide-border">
+                {reviews.map((r) => (
+                  <div key={r.id} className="pt-4 first:pt-0">
+                    <div className="flex items-center gap-3 mb-1">
+                      <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">
+                        {r.student_name?.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold">{r.student_name}</p>
+                        <StarRating value={r.rating} size={12} />
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold">{r.student_name}</p>
-                      <StarRating value={r.rating} size={12} />
-                    </div>
+                    <p className="text-sm text-foreground/80">{r.comment}</p>
                   </div>
-                  <p className="text-sm text-foreground/80">{r.comment}</p>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </section>
         </div>
 

@@ -198,6 +198,11 @@ if os.getenv("CLOUDINARY_URL"):
     DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
     CLOUDINARY_STORAGE = {"CLOUDINARY_URL": os.getenv("CLOUDINARY_URL")}
 
+# Agora (video calling) — leave blank in dev to disable real video and surface
+# a friendly "configure your App ID" message in the classroom UI.
+AGORA_APP_ID = os.getenv("AGORA_APP_ID", "")
+AGORA_APP_CERTIFICATE = os.getenv("AGORA_APP_CERTIFICATE", "")
+
 # S3 (optional — only enabled if env vars provided)
 if all(os.getenv(k) for k in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_STORAGE_BUCKET_NAME")):
     DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"

@@ -81,6 +81,9 @@ function StudentDashboard() {
         <Link to="/teachers" className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent">
           <Search className="h-4 w-4" /> Find a Teacher
         </Link>
+        <Link to="/classroom-preview" className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent">
+          <Video className="h-4 w-4" /> Test video room
+        </Link>
         <button onClick={logout} className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10">
           <LogOut className="h-4 w-4" /> Logout
         </button>
@@ -100,7 +103,7 @@ function StudentDashboard() {
               <Stat label="Teachers booked" value={new Set(bookings.map((b) => b.teacher_name)).size} />
             </div>
 
-            {upcoming[0] && (
+            {upcoming[0] ? (
               <div className="rounded-xl border border-border bg-card p-6">
                 <h2 className="font-semibold mb-3">Next session</h2>
                 <div className="flex flex-wrap items-center gap-4">
@@ -117,11 +120,28 @@ function StudentDashboard() {
                       <Video className="h-4 w-4" /> Join Session
                     </Link>
                   ) : (
-                    <span className="inline-flex items-center gap-2 rounded-md bg-muted px-4 py-2 text-sm font-medium text-muted-foreground"
-                      title="Session room is still being prepared.">
-                      <Video className="h-4 w-4" /> Not ready yet
-                    </span>
+                    <Link to="/classroom-preview"
+                      className="inline-flex items-center gap-2 rounded-md bg-muted px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/80"
+                      title="The real room isn't ready yet — try the test classroom in the meantime.">
+                      <Video className="h-4 w-4" /> Open test room
+                    </Link>
                   )}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-border bg-card p-6 text-center">
+                <Video className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                <h2 className="font-semibold">No upcoming sessions</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Book a teacher to schedule a session — or try out the video room first.
+                </p>
+                <div className="mt-4 flex items-center justify-center gap-2">
+                  <Link to="/teachers" className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
+                    Find a teacher
+                  </Link>
+                  <Link to="/classroom-preview" className="inline-flex items-center gap-2 rounded-md border border-input px-4 py-2 text-sm font-medium hover:bg-accent">
+                    <Video className="h-4 w-4" /> Test video room
+                  </Link>
                 </div>
               </div>
             )}

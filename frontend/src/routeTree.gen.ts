@@ -14,6 +14,7 @@ import { Route as TeachersRouteImport } from './routes/teachers'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as NearbyRouteImport } from './routes/nearby'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as ClassroomPreviewRouteImport } from './routes/classroom-preview'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TeachersIdRouteImport } from './routes/teachers.$id'
 import { Route as ReviewBookingIdRouteImport } from './routes/review.$bookingId'
@@ -47,6 +48,11 @@ const NearbyRoute = NearbyRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClassroomPreviewRoute = ClassroomPreviewRouteImport.update({
+  id: '/classroom-preview',
+  path: '/classroom-preview',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -97,6 +103,7 @@ const BookTeacherIdRoute = BookTeacherIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/classroom-preview': typeof ClassroomPreviewRoute
   '/login': typeof LoginRoute
   '/nearby': typeof NearbyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/classroom-preview': typeof ClassroomPreviewRoute
   '/login': typeof LoginRoute
   '/nearby': typeof NearbyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -130,6 +138,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/classroom-preview': typeof ClassroomPreviewRoute
   '/login': typeof LoginRoute
   '/nearby': typeof NearbyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/classroom-preview'
     | '/login'
     | '/nearby'
     | '/sitemap.xml'
@@ -164,6 +174,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/classroom-preview'
     | '/login'
     | '/nearby'
     | '/sitemap.xml'
@@ -180,6 +191,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/classroom-preview'
     | '/login'
     | '/nearby'
     | '/sitemap.xml'
@@ -197,6 +209,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ClassroomPreviewRoute: typeof ClassroomPreviewRoute
   LoginRoute: typeof LoginRoute
   NearbyRoute: typeof NearbyRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -246,6 +259,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/classroom-preview': {
+      id: '/classroom-preview'
+      path: '/classroom-preview'
+      fullPath: '/classroom-preview'
+      preLoaderRoute: typeof ClassroomPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -328,6 +348,7 @@ const TeachersRouteWithChildren = TeachersRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ClassroomPreviewRoute: ClassroomPreviewRoute,
   LoginRoute: LoginRoute,
   NearbyRoute: NearbyRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,

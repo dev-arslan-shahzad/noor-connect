@@ -73,3 +73,5 @@ celerybeat.pid
 # Scratch / personal notes (not tracked)
 prompt.txt
 *.scratch
+
+.claude/

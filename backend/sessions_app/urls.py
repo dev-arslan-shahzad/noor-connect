@@ -4,7 +4,17 @@ from . import views
 
 urlpatterns = [
     path("", views.SessionListView.as_view(), name="session-list"),
+    path(
+        "preview-token/",
+        views.SessionPreviewTokenView.as_view(),
+        name="session-preview-token",
+    ),
     path("<int:session_id>/", views.SessionDetailView.as_view(), name="session-detail"),
     path("<int:session_id>/start/", views.SessionStartView.as_view(), name="session-start"),
     path("<int:session_id>/end/", views.SessionEndView.as_view(), name="session-end"),
+    path(
+        "<int:session_id>/agora-token/",
+        views.SessionAgoraTokenView.as_view(),
+        name="session-agora-token",
+    ),
 ]

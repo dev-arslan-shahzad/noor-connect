@@ -1,10 +1,18 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Clock, FileText, MessageSquare, PhoneOff, Save, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Clock,
+  FileText,
+  MessageSquare,
+  Save,
+  X,
+} from "lucide-react";
 import api, { unwrap } from "@/lib/api";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ErrorMessage } from "@/components/ErrorMessage";
+import { VideoRoom, type AgoraJoinPayload } from "@/components/VideoRoom";
 
 export const Route = createFileRoute("/classroom/$sessionId")({
   head: () => ({ meta: [{ title: "Classroom — NoorConnect" }] }),
@@ -17,9 +25,11 @@ export const Route = createFileRoute("/classroom/$sessionId")({
 
 interface Session {
   id: number | string;
-  meet_link?: string;
+  booking_id?: number;
   teacher_name?: string;
+  teacher_id?: number;
   student_name?: string;
+  student_id?: number;
   subject?: string;
   date?: string;
   start_time?: string;
@@ -30,15 +40,6 @@ interface Session {
   ended_at?: string | null;
   student_notes?: string;
 }
-
-const FALLBACK: Session = {
-  id: "1",
-  meet_link: "https://meet.google.com/landing",
-  teacher_name: "Ustadh Ahmed Khan",
-  student_name: "You",
-  subject: "Tajweed",
-  status: "upcoming",
-};
 
 function minutesBetween(start?: string, end?: string) {
   if (!start || !end) return 60;
@@ -51,6 +52,7 @@ function Classroom() {
   const { sessionId } = Route.useParams();
   const navigate = useNavigate();
   const [session, setSession] = useState<Session | null>(null);
+  const [joinPayload, setJoinPayload] = useState<AgoraJoinPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [sidebar, setSidebar] = useState(true);
   const [notes, setNotes] = useState("");
@@ -59,36 +61,61 @@ function Classroom() {
   const [error, setError] = useState<string | null>(null);
   const [seconds, setSeconds] = useState(60 * 60);
   const hasStartedRef = useRef(false);
+  const [selfLabel, setSelfLabel] = useState<string>("You");
 
+  // ---- Load session + Agora token ----
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    api
-      .get(`sessions/${sessionId}/`)
-      .then(async (r) => {
+
+    (async () => {
+      try {
+        const sessionRes = await api.get(`sessions/${sessionId}/`);
         if (cancelled) return;
-        const s = unwrap<Session>(r) ?? FALLBACK;
+        const s = unwrap<Session>(sessionRes);
+        if (!s) {
+          setError("Session not found.");
+          return;
+        }
         setSession(s);
         setNotes(s.student_notes ?? "");
         setSeconds(minutesBetween(s.start_time, s.end_time) * 60);
 
-        // Auto-start on first load if booking is still upcoming.
+        // Auto-start booking if still upcoming
         if (!hasStartedRef.current && s.status === "upcoming") {
           hasStartedRef.current = true;
           try {
             const started = await api.patch(`sessions/${sessionId}/start/`);
-            if (!cancelled) setSession(unwrap<Session>(started) ?? s);
+            if (!cancelled) {
+              const updated = unwrap<Session>(started) ?? s;
+              setSession(updated);
+            }
           } catch {
-            // Backend may reject (cancelled, completed) — keep showing meet link anyway.
+            // ignore — backend may reject (e.g., cancelled/completed)
           }
         }
-      })
-      .catch(() => {
-        if (!cancelled) setSession(FALLBACK);
-      })
-      .finally(() => {
+
+        // Fetch Agora join credentials
+        const tokenRes = await api.get(`sessions/${sessionId}/agora-token/`);
+        if (cancelled) return;
+        const payload = unwrap<AgoraJoinPayload>(tokenRes);
+        if (payload) {
+          setJoinPayload(payload);
+          if (payload.display_name) setSelfLabel(payload.display_name);
+        }
+      } catch (e: any) {
+        if (cancelled) return;
+        const detail = e.response?.data?.detail;
+        setError(
+          typeof detail === "string"
+            ? detail
+            : "Could not load the classroom. Try refreshing the page.",
+        );
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
+
     return () => {
       cancelled = true;
     };
@@ -101,10 +128,9 @@ function Classroom() {
 
   const saveNotes = async () => {
     setSavingNotes(true);
-    setError(null);
     try {
-      // Notes are persisted by the end-session endpoint, so we just buffer them locally
-      // until the user ends the session. Show "saved" feedback on-screen.
+      // Notes are persisted by the end-session endpoint, so we just buffer them
+      // locally with a brief "saved" affordance.
       await new Promise((r) => setTimeout(r, 250));
     } finally {
       setSavingNotes(false);
@@ -138,63 +164,91 @@ function Classroom() {
   };
 
   if (loading) return <LoadingSpinner label="Loading session..." />;
-  if (!session) return <div className="p-12 text-center">Session not found.</div>;
+  if (!session)
+    return (
+      <div className="p-12 text-center">
+        <p>{error ?? "Session not found."}</p>
+        <Link to="/dashboard/student" className="text-primary underline mt-3 inline-block">
+          Back to dashboard
+        </Link>
+      </div>
+    );
 
   const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
   const ss = String(seconds % 60).padStart(2, "0");
 
+  // The "remote" label: if the user is a student, show the teacher's name and vice versa.
+  // We don't know the viewer's role here, so we infer from the join payload.
+  const viewerIsTeacher = joinPayload?.role_in_session === "teacher";
+  const remoteLabel = viewerIsTeacher ? session.student_name : session.teacher_name;
+
   return (
-    <div className="flex flex-col h-screen bg-background">
-      <div className="border-b border-border bg-card px-4 py-3 flex items-center gap-4">
-        <Link to="/dashboard/student" className="text-muted-foreground hover:text-foreground">
+    <div className="flex h-screen flex-col bg-zinc-950">
+      {/* Header */}
+      <div className="border-b border-white/10 bg-zinc-900/80 backdrop-blur px-4 py-3 flex items-center gap-4 text-white">
+        <Link
+          to="/dashboard/student"
+          className="text-zinc-400 hover:text-white transition-colors"
+        >
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <div className="flex-1">
-          <p className="font-semibold">
-            {session.teacher_name} ·{" "}
-            <span className="text-muted-foreground font-normal">{session.subject}</span>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold truncate">
+            {remoteLabel ?? session.teacher_name}
+            {session.subject && (
+              <span className="ml-2 text-zinc-400 font-normal">· {session.subject}</span>
+            )}
+          </p>
+          <p className="text-xs text-zinc-500">
+            {session.date} · {session.start_time?.slice(0, 5)} – {session.end_time?.slice(0, 5)}
           </p>
         </div>
-        <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-          <Clock className="h-4 w-4" /> {mm}:{ss}
+        <div className="inline-flex items-center gap-2 text-sm text-zinc-300 tabular-nums">
+          <Clock className="h-4 w-4 text-zinc-400" /> {mm}:{ss}
         </div>
         <button
           onClick={() => setSidebar((s) => !s)}
-          className="text-sm text-primary font-medium"
+          className="text-sm text-emerald-400 hover:text-emerald-300 font-medium"
         >
           {sidebar ? "Hide notes" : "Show notes"}
         </button>
         <button
-          disabled={ending || session.status === "completed" || session.status === "cancelled"}
+          disabled={
+            ending || session.status === "completed" || session.status === "cancelled"
+          }
           onClick={endSession}
-          className="inline-flex items-center gap-2 rounded-md bg-destructive px-3 py-1.5 text-sm font-semibold text-destructive-foreground disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-md bg-red-500 hover:bg-red-400 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
         >
-          <PhoneOff className="h-4 w-4" /> {ending ? "Ending..." : "End session"}
+          {ending ? "Ending..." : "End session"}
         </button>
       </div>
 
       {error && (
-        <div className="border-b border-border bg-destructive/5 px-4 py-2">
+        <div className="border-b border-red-500/30 bg-red-500/10 px-4 py-2">
           <ErrorMessage message={error} />
         </div>
       )}
 
+      {/* Main */}
       <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 bg-black">
-          <iframe
-            src={session.meet_link}
-            allow="camera; microphone; fullscreen; display-capture; autoplay"
-            className="w-full h-full border-0"
-            title="Google Meet"
+        <div className="flex-1 min-w-0 bg-black">
+          <VideoRoom
+            joinPayload={joinPayload}
+            selfLabel={selfLabel}
+            remoteLabel={remoteLabel}
+            onLeave={endSession}
           />
         </div>
         {sidebar && (
-          <aside className="w-80 border-l border-border bg-card flex flex-col">
-            <div className="p-4 border-b border-border flex items-center justify-between">
-              <h3 className="font-semibold inline-flex items-center gap-2">
-                <MessageSquare className="h-4 w-4" /> Session notes
+          <aside className="w-80 border-l border-white/10 bg-zinc-900 flex flex-col text-zinc-100">
+            <div className="p-4 border-b border-white/10 flex items-center justify-between">
+              <h3 className="font-semibold inline-flex items-center gap-2 text-sm">
+                <MessageSquare className="h-4 w-4 text-emerald-400" /> Session notes
               </h3>
-              <button onClick={() => setSidebar(false)}>
+              <button
+                onClick={() => setSidebar(false)}
+                className="text-zinc-400 hover:text-white"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -202,26 +256,26 @@ function Classroom() {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Take notes during your session..."
-              className="flex-1 resize-none bg-transparent p-4 text-sm focus:outline-none"
+              className="flex-1 resize-none bg-transparent p-4 text-sm focus:outline-none placeholder:text-zinc-500"
             />
-            <div className="border-t border-border p-3">
+            <div className="border-t border-white/10 p-3">
               <button
                 onClick={saveNotes}
                 disabled={savingNotes}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-50"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-white/15 px-3 py-1.5 text-xs font-medium hover:bg-white/5 disabled:opacity-50"
               >
                 <Save className="h-3.5 w-3.5" />
                 {savingNotes ? "Saving..." : "Save draft"}
               </button>
-              <p className="mt-2 text-[11px] text-muted-foreground text-center">
+              <p className="mt-2 text-[11px] text-zinc-500 text-center">
                 Notes are sent to the server when you end the session.
               </p>
             </div>
-            <div className="border-t border-border p-4">
+            <div className="border-t border-white/10 p-4">
               <h4 className="text-sm font-semibold mb-2 inline-flex items-center gap-2">
-                <FileText className="h-4 w-4" /> Files shared
+                <FileText className="h-4 w-4 text-zinc-400" /> Files shared
               </h4>
-              <p className="text-xs text-muted-foreground">No files shared yet.</p>
+              <p className="text-xs text-zinc-500">No files shared yet.</p>
             </div>
           </aside>
         )}
